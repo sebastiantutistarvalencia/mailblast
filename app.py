@@ -106,10 +106,6 @@ def build_mime(subject, from_str, to_email, html, image_path=None):
 
 def send_emails_thread(campaign_id, smtp_cfg, recipients, subject, template,
                        host_url, redirect_url='', image_path='', image_url='', social=None):
-    send_progress[campaign_id] = {
-        'total': len(recipients), 'sent': 0, 'failed': 0, 'done': False, 'error': None
-    }
-
     # Decide image source: local file (CID) takes priority over URL
     use_cid = bool(image_path and os.path.isfile(image_path))
     fallback_img = image_url or 'https://picsum.photos/600/300?random=42'
@@ -208,12 +204,14 @@ def serve_upload(fname):
 def start_campaign():
     data = request.json
     cid = str(uuid.uuid4())[:8].upper()
+    n = len(data['recipients'])
     campaigns[cid] = {
         'id': cid, 'subject': data['subject'],
-        'total': len(data['recipients']),
-        'sent': 0, 'failed': 0, 'opens': 0, 'clicks': 0,
+        'total': n, 'sent': 0, 'failed': 0, 'opens': 0, 'clicks': 0,
         'created_at': datetime.now().strftime('%H:%M:%S')
     }
+    # Inicializar ANTES de arrancar el hilo para evitar race condition en polls
+    send_progress[cid] = {'total': n, 'sent': 0, 'failed': 0, 'done': False, 'error': None}
     t = threading.Thread(
         target=send_emails_thread,
         args=(cid, data['smtp'], data['recipients'], data['subject'], data['template'],
