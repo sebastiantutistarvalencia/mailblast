@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MailBlast</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--panel:#13131f;--border:#2a2a3f;--accent:#7c3aed;--accent2:#a855f7;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--text:#e0e0e0;--muted:#888}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+header{background:var(--panel);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;gap:16px}
+header h1{font-size:22px;font-weight:700;background:linear-gradient(135deg,#7c3aed,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+header .subtitle{color:var(--muted);font-size:13px}
+.main{display:grid;grid-template-columns:360px 1fr;flex:1;gap:0}
+.sidebar{background:var(--panel);border-right:1px solid var(--border);padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.content{padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px}
+.card h3{font-size:13px;font-weight:600;color:var(--accent2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;margin-top:10px}
+label:first-of-type{margin-top:0}
+input,textarea,select{width:100%;background:#0d0d18;border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;outline:none;transition:border .2s}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{resize:vertical;font-family:'Courier New',monospace;font-size:12px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{padding:10px 20px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.btn-primary:hover{opacity:.85;transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat{background:#0d0d18;border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.stat .val{font-size:24px;font-weight:700;color:var(--accent2)}
+.stat .lbl{font-size:11px;color:var(--muted);margin-top:2px}
+.progress-bar{height:8px;background:#0d0d18;border-radius:4px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;transition:width .4s ease}
+.campaign-row{display:flex;align-items:center;gap:10px;padding:10px;background:#0d0d18;border-radius:8px;margin-top:8px;font-size:12px}
+.campaign-row .cid{font-family:monospace;color:var(--accent2);font-weight:700}
+.campaign-row .meta{flex:1;color:var(--muted)}
+.badge{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge-green{background:#14532d;color:var(--green)}
+.badge-yellow{background:#422006;color:var(--yellow)}
+.badge-red{background:#450a0a;color:var(--red)}
+.error-msg{font-size:11px;color:var(--red);margin-top:4px;word-break:break-word;background:#1a0505;padding:6px 8px;border-radius:6px;border:1px solid #450a0a;display:none}
+.campaign-row.has-error .error-msg{display:block}
+.campaign-row.has-error{flex-wrap:wrap}
+.campaign-row.has-error .meta{width:100%}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:13px;z-index:1000;transform:translateX(120%);transition:transform .3s;max-width:380px;line-height:1.5}
+.toast.show{transform:translateX(0)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast.success{border-color:var(--green);color:var(--green)}
+.alert-box{padding:10px 12px;border-radius:8px;font-size:12px;line-height:1.6;margin-top:8px;display:none}
+.alert-box.visible{display:block}
+.alert-error{background:#1a0505;border:1px solid #450a0a;color:#fca5a5}
+.alert-info{background:#0c1a0c;border:1px solid #14532d;color:#86efac}
+#preview-frame{width:100%;height:500px;border:1px solid var(--border);border-radius:10px;background:#fff}
+.tab-bar{display:flex;gap:4px;margin-bottom:12px}
+.tab{padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:transparent;transition:all .2s}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.hint{font-size:11px;color:var(--muted);margin-top:4px}
+.recipients-count{font-size:11px;color:var(--accent2);margin-top:4px;font-weight:600}
+/* Upload zone */
+.drop-zone{border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:rgba(124,58,237,.07)}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-zone .dz-icon{font-size:28px;display:block;margin-bottom:6px}
+.drop-zone .dz-text{font-size:12px;color:var(--muted)}
+.img-preview{width:100%;border-radius:8px;margin-top:10px;max-height:140px;object-fit:cover;display:none;border:1px solid var(--border)}
+.img-preview.visible{display:block}
+.img-clear{font-size:11px;color:var(--red);cursor:pointer;margin-top:4px;display:none}
+.img-clear.visible{display:inline-block}
+/* Social icons grid */
+.social-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.social-row{display:flex;align-items:center;gap:6px}
+.social-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.social-row input{flex:1;font-size:12px;padding:6px 8px}
+/* Module tabs */
+.module-tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--border);padding:0 24px}
+.mtab{padding:14px 24px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;display:flex;align-items:center;gap:8px}
+.mtab:hover{color:var(--text)}
+.mtab.active{color:var(--accent2);border-bottom-color:var(--accent2)}
+.module{display:none;flex:1;overflow:hidden}
+.module.active{display:grid}
+/* WA status pill */
+.wa-status{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600}
+.wa-status .dot{width:8px;height:8px;border-radius:50%}
+.wa-disc{background:#1a0a0a;color:#888}         .wa-disc .dot{background:#444}
+.wa-load{background:#1a1500;color:#eab308}       .wa-load .dot{background:#eab308;animation:pulse2 1s infinite}
+.wa-qr  {background:#0a1020;color:#60a5fa}       .wa-qr   .dot{background:#60a5fa;animation:pulse2 .8s infinite}
+.wa-conn{background:#0a1a0a;color:#22c55e}       .wa-conn .dot{background:#22c55e}
+.wa-err {background:#1a0505;color:#f87171}       .wa-err  .dot{background:#ef4444}
+@keyframes pulse2{0%,100%{opacity:1}50%{opacity:.3}}
+/* CSV import button */
+.btn-csv{background:transparent;border:1px dashed #3a3a5a;color:#888;font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all .2s}
+.btn-csv:hover{border-color:var(--accent);color:var(--accent2)}
+/* WA textarea */
+.wa-msg{min-height:120px;width:100%;resize:vertical}
+/* Progress ring */
+.pct-text{font-size:22px;font-weight:800;color:var(--accent2)}
+</style>
+</head>
+<body>
+
+<header>
+  <img src="/static/gif_algreco.gif" alt="Algreco" style="height:48px;object-fit:contain">
+  <div>
+    <h1>⚡ MailBlast</h1>
+    <div class="subtitle">Correos masivos con seguimiento</div>
+  </div>
+</header>
+
+<!-- MODULE TABS -->
+<div class="module-tabs">
+  <div class="mtab active" onclick="switchModule('email')">📧 Email masivo</div>
+  <div class="mtab" onclick="switchModule('whatsapp')">💬 WhatsApp</div>
+</div>
+
+<!-- EMAIL MODULE -->
+<div class="module active" id="mod-email" style="grid-template-columns:360px 1fr">
+<div class="main" style="display:contents">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- SMTP -->
+    <div class="card">
+      <h3>📡 Servidor SMTP</h3>
+      <label>Proveedor</label>
+      <select id="smtp-preset" onchange="applyPreset()">
+        <option value="gmail">Gmail</option>
+        <option value="outlook">Outlook / Hotmail</option>
+        <option value="yahoo">Yahoo Mail</option>
+        <option value="custom">Personalizado</option>
+      </select>
+      <div class="row2">
+        <div>
+          <label>Host SMTP</label>
+          <input id="smtp-host" value="smtp.gmail.com">
+        </div>
+        <div>
+          <label>Puerto</label>
+          <input id="smtp-port" value="587" type="number">
+        </div>
+      </div>
+      <label>Tu correo (remitente)</label>
+      <input id="smtp-user" type="email" placeholder="tucorreo@gmail.com">
+      <label>Contraseña / App Password</label>
+      <input id="smtp-pass" type="password" placeholder="••••••••••••">
+      <div class="hint">Gmail: usa una <b>Contraseña de aplicación</b> — <a href="#" onclick="showGmailHelp()" style="color:var(--accent2)">¿Cómo?</a></div>
+      <label>Nombre remitente</label>
+      <input id="smtp-from-name" placeholder="Mi Empresa">
+    </div>
+
+    <!-- RECIPIENTS -->
+    <div class="card">
+      <h3>👥 Destinatarios</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:12px;color:var(--muted)">Pega correos o importa CSV</span>
+        <label style="margin:0;cursor:pointer">
+          <input type="file" id="email-csv-input" accept=".csv" style="display:none" onchange="importCSV(this,'email')">
+          <span class="btn-csv">📄 Importar CSV</span>
+        </label>
+      </div>
+      <textarea id="recipients-raw" rows="8" placeholder="juan@ejemplo.com&#10;María,maria@ejemplo.com&#10;pedro@ejemplo.com" oninput="parseRecipients()"></textarea>
+      <div class="recipients-count" id="recipients-count">0 destinatarios</div>
+      <div class="hint">Formato: <code>correo</code> o <code>Nombre,correo</code> &nbsp;·&nbsp; El CSV puede tener columnas: nombre, email, telefono</div>
+    </div>
+
+    <!-- SUBJECT -->
+    <div class="card">
+      <h3>✉️ Asunto</h3>
+      <input id="subject" placeholder="¡Oferta especial solo para ti!">
+    </div>
+
+    <!-- IMAGE UPLOAD -->
+    <div class="card">
+      <h3>🖼️ Imagen del correo</h3>
+
+      <!-- Drag & drop zone -->
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="file-input" accept="image/png,image/jpeg,image/gif,image/webp" onchange="handleFileSelect(this.files[0])">
+        <span class="dz-icon">📁</span>
+        <div class="dz-text">Arrastra tu imagen aquí o <b style="color:var(--accent2)">haz clic</b><br>PNG · JPG · GIF · WEBP</div>
+      </div>
+      <img id="img-preview" class="img-preview" alt="Vista previa">
+      <span class="img-clear" id="img-clear" onclick="clearImage()">✕ Quitar imagen</span>
+      <div class="hint" style="margin-top:6px">O pega una URL directa:</div>
+      <input id="image-url" placeholder="https://i.imgur.com/tuimagen.jpg" oninput="updatePreview()">
+
+      <label style="margin-top:14px">🔗 URL destino al hacer clic</label>
+      <input id="redirect-url" placeholder="https://youtube.com/watch?v=..." oninput="updatePreview()">
+      <div id="redirect-preview" style="display:none;margin-top:6px;padding:7px 10px;background:#0d0d18;border-radius:8px;font-size:11px;color:#a855f7;word-break:break-all"></div>
+      <div class="hint">Video de YouTube, página, lo que sea. Vacío → abre la sorpresa con confeti.</div>
+    </div>
+
+    <!-- SOCIAL MEDIA -->
+    <div class="card">
+      <h3>📱 Redes sociales</h3>
+      <div class="hint" style="margin-bottom:10px">Se añade automáticamente al pie del correo</div>
+      <div class="social-grid">
+        <div class="social-row"><div class="social-dot" style="background:#E1306C"></div><input id="soc-instagram" placeholder="Instagram URL"></div>
+        <div class="social-row"><div class="social-dot" style="background:#1877F2"></div><input id="soc-facebook"  placeholder="Facebook URL"></div>
+        <div class="social-row"><div class="social-dot" style="background:#111"></div><input id="soc-tiktok"    placeholder="TikTok URL"></div>
+        <div class="social-row"><div class="social-dot" style="background:#FF0000"></div><input id="soc-youtube"   placeholder="YouTube URL"></div>
+        <div class="social-row"><div class="social-dot" style="background:#1DA1F2"></div><input id="soc-twitter"   placeholder="Twitter/X URL"></div>
+        <div class="social-row"><div class="social-dot" style="background:#25D366"></div><input id="soc-whatsapp"  placeholder="WhatsApp link"></div>
+        <div class="social-row"><div class="social-dot" style="background:#0A66C2"></div><input id="soc-linkedin"  placeholder="LinkedIn URL"></div>
+      </div>
+    </div>
+
+    <!-- SEND BUTTON -->
+    <button class="btn btn-primary" id="send-btn" onclick="sendCampaign()" style="width:100%;justify-content:center;padding:14px">
+      🚀 Enviar Campaña
+    </button>
+
+    <!-- PROGRESS -->
+    <div id="progress-card" style="display:none" class="card">
+      <h3>📤 Enviando...</h3>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      <div id="progress-text" style="font-size:12px;color:var(--muted)">Iniciando...</div>
+      <div id="progress-error" class="alert-box alert-error"></div>
+    </div>
+
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- STATS -->
+    <div class="card">
+      <h3>📊 Estadísticas</h3>
+      <div class="stats-grid">
+        <div class="stat"><div class="val" id="s-total">0</div><div class="lbl">Total enviados</div></div>
+        <div class="stat"><div class="val" id="s-opens" style="color:var(--yellow)">0</div><div class="lbl">Aperturas</div></div>
+        <div class="stat"><div class="val" id="s-clicks" style="color:var(--green)">0</div><div class="lbl">Clicks imagen</div></div>
+        <div class="stat"><div class="val" id="s-campaigns">0</div><div class="lbl">Campañas</div></div>
+      </div>
+      <div id="campaigns-list"></div>
+    </div>
+
+    <!-- TEMPLATE EDITOR -->
+    <div class="card" style="flex:1">
+      <h3>🎨 Plantilla del Correo</h3>
+      <div class="tab-bar">
+        <button class="tab active" onclick="switchTab('editor')">Editor HTML</button>
+        <button class="tab" onclick="switchTab('preview')">Vista previa</button>
+      </div>
+
+      <div id="tab-editor">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button class="btn btn-outline btn-sm" onclick="loadTemplate('promo')">🛒 Promoción</button>
+          <button class="btn btn-outline btn-sm" onclick="loadTemplate('event')">🎉 Evento</button>
+          <button class="btn btn-outline btn-sm" onclick="loadTemplate('minimal')">✉ Minimalista</button>
+        </div>
+        <textarea id="template-editor" rows="22" oninput="updatePreview()"></textarea>
+        <div class="hint">Variables: <code>{{name}}</code> {{email}} {{click_link}} {{unsub_link}}</div>
+      </div>
+
+      <div id="tab-preview" style="display:none">
+        <iframe id="preview-frame"></iframe>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div><!-- end module email / end main -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     WHATSAPP MODULE
+════════════════════════════════════════════════════════════════════════════ -->
+<div class="module" id="mod-whatsapp" style="grid-template-columns:360px 1fr">
+
+  <!-- WA SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- CONNECTION -->
+    <div class="card">
+      <h3>📱 Conexión WhatsApp</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div id="wa-status-pill" class="wa-status wa-disc"><div class="dot"></div><span>Desconectado</span></div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-primary btn-sm" id="wa-connect-btn" onclick="waConnect()">Conectar</button>
+          <button class="btn btn-outline btn-sm" id="wa-disconnect-btn" onclick="waDisconnect()" style="display:none">Desconectar</button>
+        </div>
+      </div>
+      <div id="wa-status-msg" class="hint" style="color:var(--muted)">
+        Haz clic en Conectar. Se abrirá Chrome con WhatsApp Web — escanea el QR con tu celular.
+      </div>
+    </div>
+
+    <!-- RECIPIENTS WA -->
+    <div class="card">
+      <h3>👥 Destinatarios</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:12px;color:var(--muted)">Celular por línea</span>
+        <label style="margin:0;cursor:pointer">
+          <input type="file" id="wa-csv-input" accept=".csv" style="display:none" onchange="importCSV(this,'wa')">
+          <span class="btn-csv">📄 Importar CSV</span>
+        </label>
+      </div>
+      <textarea id="wa-recipients" class="wa-msg" rows="9"
+        placeholder="573001234567&#10;Nombre,573001234567&#10;573009876543"
+        oninput="parseWaRecipients()"></textarea>
+      <div class="recipients-count" id="wa-rec-count">0 contactos</div>
+      <div class="hint">Código de país incluido (ej: 57 para Colombia). Formato: número o Nombre,número</div>
+      <label style="margin-top:10px">Código de país por defecto</label>
+      <input id="wa-country-code" value="57" style="width:80px">
+    </div>
+
+    <!-- SEND WA -->
+    <button class="btn btn-primary" id="wa-send-btn" onclick="waSend()" style="width:100%;justify-content:center;padding:14px">
+      🚀 Enviar mensajes
+    </button>
+
+    <!-- WA PROGRESS -->
+    <div id="wa-progress-card" style="display:none" class="card">
+      <h3>📤 Enviando...</h3>
+      <div class="progress-bar"><div class="progress-fill" id="wa-progress-fill" style="width:0%"></div></div>
+      <div id="wa-progress-text" style="font-size:12px;color:var(--muted)">Iniciando...</div>
+      <div id="wa-errors" style="font-size:11px;color:var(--red);margin-top:6px;max-height:80px;overflow-y:auto"></div>
+    </div>
+
+  </div>
+
+  <!-- WA CONTENT -->
+  <div class="content">
+
+    <!-- WA STATS -->
+    <div class="card">
+      <h3>📊 Estadísticas WhatsApp</h3>
+      <div class="stats-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="stat"><div class="val" id="wa-s-sent">0</div><div class="lbl">Enviados</div></div>
+        <div class="stat"><div class="val" id="wa-s-failed" style="color:var(--red)">0</div><div class="lbl">Fallidos</div></div>
+        <div class="stat"><div class="val" id="wa-s-sessions">0</div><div class="lbl">Campañas</div></div>
+      </div>
+    </div>
+
+    <!-- WA COMPOSER -->
+    <div class="card" style="flex:1">
+      <h3>✍️ Mensaje</h3>
+      <div class="hint" style="margin-bottom:10px">Variables: <code>{{name}}</code> <code>{{phone}}</code></div>
+
+      <!-- TEMPLATES WA -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="loadWaTemplate('promo')">🛒 Promo</button>
+        <button class="btn btn-outline btn-sm" onclick="loadWaTemplate('event')">🎉 Evento</button>
+        <button class="btn btn-outline btn-sm" onclick="loadWaTemplate('reminder')">⏰ Recordatorio</button>
+        <button class="btn btn-outline btn-sm" onclick="loadWaTemplate('followup')">📞 Seguimiento</button>
+      </div>
+
+      <textarea id="wa-message" rows="16" style="width:100%;resize:vertical;font-family:'Segoe UI',sans-serif;font-size:14px;line-height:1.6"
+        placeholder="Escribe tu mensaje aquí..."></textarea>
+
+      <div style="margin-top:10px;padding:12px;background:#0d0d18;border-radius:8px;font-size:12px;color:#888;line-height:1.6">
+        <b style="color:var(--accent2)">Vista previa:</b><br>
+        <div id="wa-preview" style="color:#ccc;white-space:pre-wrap;margin-top:6px;max-height:120px;overflow-y:auto"></div>
+      </div>
+
+      <div style="margin-top:16px;padding:12px;background:#0c1a0c;border:1px solid #14532d;border-radius:8px;font-size:12px;color:#86efac;line-height:1.6">
+        ℹ️ <b>Cómo funciona:</b> Haz clic en <b>Conectar</b> → escanea el QR en tu celular → la sesión se guarda (no necesitas escanear de nuevo) → escribe el mensaje → envía.<br><br>
+        ⚠️ <b>Delay automático</b> de 3-6 s entre mensajes para reducir riesgo de bloqueo por WhatsApp.
+      </div>
+    </div>
+
+  </div>
+</div><!-- end mod-whatsapp -->
+
+<div class="toast" id="toast"></div>
+
+<!-- Gmail Help Modal -->
+<div id="gmail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center">
+  <div style="background:#13131f;border:1px solid #7c3aed;border-radius:16px;padding:32px;max-width:480px;width:90%;position:relative">
+    <button onclick="document.getElementById('gmail-modal').style.display='none'"
+      style="position:absolute;top:12px;right:16px;background:none;border:none;color:#888;font-size:20px;cursor:pointer">✕</button>
+    <h2 style="color:#a855f7;margin-bottom:16px;font-size:18px">🔑 Cómo crear una App Password en Gmail</h2>
+    <ol style="color:#ccc;font-size:13px;line-height:2;padding-left:20px">
+      <li>Activa la <b style="color:#fff">Verificación en 2 pasos</b> en tu cuenta Google</li>
+      <li>Ve a <b style="color:#fff">myaccount.google.com/apppasswords</b></li>
+      <li>En "Seleccionar aplicación" elige <b style="color:#fff">Correo</b></li>
+      <li>En "Seleccionar dispositivo" elige <b style="color:#fff">Otro</b> → escribe "MailBlast"</li>
+      <li>Haz clic en <b style="color:#fff">Generar</b></li>
+      <li>Copia la contraseña de 16 caracteres que aparece</li>
+      <li>Pégala en el campo <b style="color:#fff">Contraseña</b> de esta app</li>
+    </ol>
+    <div style="background:#0d0d18;border:1px solid #2a2a3f;border-radius:8px;padding:10px 14px;margin-top:16px;font-size:12px;color:#888">
+      ⚡ El error <code style="color:#f87171">5.7.9 WebLoginRequired</code> siempre significa que necesitas App Password.
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── TEMPLATES ────────────────────────────────────────────────────────────────
+const TEMPLATES = {
+
+// ── PROMO ─────────────────────────────────────────────────────────────────────
+promo: `<!DOCTYPE html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>Mensaje para {{name}}</title>
+<style>
+  :root{color-scheme:light}
+  body{margin:0;padding:0;background-color:#f0f2f5}
+  @media(prefers-color-scheme:dark){
+    body,table,td,a{background-color:inherit!important;color:inherit!important}
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f0f2f5;font-family:Arial,Helvetica,sans-serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f0f2f5">
+<tr><td align="center" style="padding:24px 12px">
+
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="max-width:600px;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.10)">
+
+    <!-- HEADER -->
+    <tr>
+      <td bgcolor="#7c3aed" style="padding:40px 40px 34px;text-align:center">
+        <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:2px">Mensaje exclusivo</p>
+        <h1 style="margin:10px 0 6px;font-family:Arial,sans-serif;font-size:30px;font-weight:800;color:#ffffff;line-height:1.2">&#127881; &#161;Hola, {{name}}!</h1>
+        <p style="margin:0;font-family:Arial,sans-serif;font-size:15px;color:rgba(255,255,255,0.85)">Tenemos algo especial para ti</p>
+      </td>
+    </tr>
+
+    <!-- IMAGEN CLICKEABLE -->
+    <tr>
+      <td style="padding:0;line-height:0;font-size:0">
+        <a href="{{click_link}}" style="display:block;text-decoration:none;line-height:0;font-size:0">
+          <img src="{{image_url}}" width="600" alt="Haz clic para ver la sorpresa"
+               style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:0">
+        </a>
+      </td>
+    </tr>
+
+    <!-- HINT CLIC -->
+    <tr>
+      <td bgcolor="#ede9fe" style="padding:10px 24px;text-align:center">
+        <p style="margin:0;font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#6d28d9">
+          &#128070; Haz clic en la imagen para ver la sorpresa
+        </p>
+      </td>
+    </tr>
+
+    <!-- CUERPO -->
+    <tr>
+      <td style="padding:36px 40px 28px">
+        <h2 style="margin:0 0 14px;font-family:Arial,sans-serif;font-size:22px;font-weight:700;color:#1a1a2e">
+          &#161;Una oferta que no puedes perderte!
+        </h2>
+        <p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:15px;color:#555555;line-height:1.75">
+          Hola <strong style="color:#1a1a2e">{{name}}</strong>, preparamos algo incre&#237;ble exclusivamente para ti.
+          Haz clic en la imagen y descubre la sorpresa.
+        </p>
+        <p style="margin:0 0 28px;font-family:Arial,sans-serif;font-size:15px;color:#555555;line-height:1.75">
+          Esta oferta es v&#225;lida por tiempo limitado, &#161;no la dejes pasar!
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td bgcolor="#7c3aed" style="border-radius:50px">
+              <a href="{{click_link}}" style="display:inline-block;padding:14px 40px;font-family:Arial,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none">
+                &#10024; Ver la sorpresa
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- REDES SOCIALES -->
+    <tr><td>{{social_links}}</td></tr>
+
+    <!-- FOOTER -->
+    <tr>
+      <td style="padding:18px 40px;border-top:1px solid #f0f0f5;text-align:center">
+        <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#aaaaaa">
+          &#169; 2025 Mi Empresa &nbsp;&middot;&nbsp;
+          <a href="{{unsub_link}}" style="color:#aaaaaa;text-decoration:underline">Cancelar suscripci&#243;n</a>
+        </p>
+      </td>
+    </tr>
+
+  </table>
+</td></tr>
+</table>
+</body></html>`,
+
+// ── EVENTO ────────────────────────────────────────────────────────────────────
+event: `<!DOCTYPE html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>Invitaci&#243;n para {{name}}</title>
+<style>:root{color-scheme:light}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f5f3ff;font-family:Arial,Helvetica,sans-serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f5f3ff">
+<tr><td align="center" style="padding:24px 12px">
+
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="max-width:600px;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(124,58,237,0.15)">
+
+    <!-- TOP ACCENT BAR -->
+    <tr>
+      <td style="padding:0;line-height:4px;font-size:4px;background:linear-gradient(90deg,#7c3aed,#ec4899,#f97316)">
+        &nbsp;
+      </td>
+    </tr>
+
+    <!-- HEADER -->
+    <tr>
+      <td bgcolor="#1a1a2e" style="padding:40px 40px 36px;text-align:center">
+        <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:11px;font-weight:700;color:#a855f7;text-transform:uppercase;letter-spacing:2px">Invitaci&#243;n especial</p>
+        <h1 style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:28px;font-weight:800;color:#ffffff;line-height:1.2">
+          &#127882; &#161;Est&#225;s invitado/a!
+        </h1>
+        <p style="margin:0;font-family:Arial,sans-serif;font-size:15px;color:#c4b5fd">
+          {{name}} &mdash; algo &#250;nico te espera
+        </p>
+      </td>
+    </tr>
+
+    <!-- IMAGEN CLICKEABLE -->
+    <tr>
+      <td style="padding:0;line-height:0;font-size:0;position:relative">
+        <a href="{{click_link}}" style="display:block;text-decoration:none;line-height:0;font-size:0">
+          <img src="{{image_url}}" width="600" alt="Haz clic para descubrir el evento"
+               style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:0">
+        </a>
+      </td>
+    </tr>
+
+    <!-- HINT -->
+    <tr>
+      <td bgcolor="#1a1a2e" style="padding:12px 24px;text-align:center">
+        <p style="margin:0;font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#a855f7">
+          &#9654; Haz clic en la imagen para revelar los detalles
+        </p>
+      </td>
+    </tr>
+
+    <!-- CUERPO -->
+    <tr>
+      <td style="padding:36px 40px 28px">
+        <h2 style="margin:0 0 14px;font-family:Arial,sans-serif;font-size:22px;font-weight:700;color:#1a1a2e">
+          No te pierdas esta experiencia &#250;nica
+        </h2>
+        <p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:15px;color:#555555;line-height:1.75">
+          Hola <strong style="color:#1a1a2e">{{name}}</strong>, has sido seleccionado/a para una experiencia exclusiva.
+          Haz clic en la imagen para revelar todos los detalles del evento.
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td bgcolor="#7c3aed" style="border-radius:8px">
+              <a href="{{click_link}}" style="display:inline-block;padding:14px 40px;font-family:Arial,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none">
+                &#128640; Descubrir el evento
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- REDES SOCIALES -->
+    <tr><td>{{social_links}}</td></tr>
+
+    <!-- FOOTER -->
+    <tr>
+      <td style="padding:18px 40px;border-top:1px solid #f0f0f5;text-align:center">
+        <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#aaaaaa">
+          <a href="{{unsub_link}}" style="color:#aaaaaa;text-decoration:underline">Cancelar suscripci&#243;n</a>
+        </p>
+      </td>
+    </tr>
+
+  </table>
+</td></tr>
+</table>
+</body></html>`,
+
+// ── MINIMAL ───────────────────────────────────────────────────────────────────
+minimal: `<!DOCTYPE html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>Mensaje para {{name}}</title>
+<style>:root{color-scheme:light}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#ffffff;font-family:Georgia,'Times New Roman',serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff">
+<tr><td align="center" style="padding:40px 20px">
+
+  <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="max-width:560px">
+
+    <!-- ACCENT TOP -->
+    <tr>
+      <td style="padding:0 0 28px 0;border-top:4px solid #7c3aed">&nbsp;</td>
+    </tr>
+
+    <!-- SALUDO -->
+    <tr>
+      <td style="padding:0 0 20px 0">
+        <h1 style="margin:0;font-family:Georgia,serif;font-size:26px;font-weight:700;color:#1a1a1a;line-height:1.3">
+          Hola, {{name}} &#128075;
+        </h1>
+      </td>
+    </tr>
+
+    <!-- TEXTO INTRO -->
+    <tr>
+      <td style="padding:0 0 20px 0">
+        <p style="margin:0;font-family:Georgia,serif;font-size:16px;color:#444444;line-height:1.8">
+          Esperamos que est&#233;s teniendo un excelente d&#237;a. Te escribimos porque tenemos
+          algo importante que compartir contigo.
+        </p>
+      </td>
+    </tr>
+
+    <!-- IMAGEN CLICKEABLE -->
+    <tr>
+      <td style="padding:8px 0 4px;line-height:0;font-size:0">
+        <a href="{{click_link}}" style="display:block;text-decoration:none;line-height:0;font-size:0;border-radius:8px;overflow:hidden">
+          <img src="{{image_url}}" width="560" alt="Haz clic para ver el mensaje"
+               style="display:block;width:100%;max-width:560px;height:auto;border:0;outline:0;border-radius:8px">
+        </a>
+      </td>
+    </tr>
+
+    <!-- HINT DEBAJO DE IMAGEN -->
+    <tr>
+      <td style="padding:8px 0 24px;text-align:right">
+        <a href="{{click_link}}" style="font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#7c3aed;text-decoration:none">
+          Ver mensaje completo &#8594;
+        </a>
+      </td>
+    </tr>
+
+    <!-- TEXTO SECUNDARIO -->
+    <tr>
+      <td style="padding:0 0 28px 0">
+        <p style="margin:0 0 16px;font-family:Georgia,serif;font-size:16px;color:#444444;line-height:1.8">
+          Haz clic en la imagen para descubrir el mensaje que preparamos especialmente para ti.
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="border-bottom:2px solid #7c3aed">
+              <a href="{{click_link}}" style="font-family:Georgia,serif;font-size:16px;font-weight:700;color:#7c3aed;text-decoration:none">
+                Ver el mensaje completo &#8594;
+              </a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- REDES SOCIALES -->
+    <tr><td>{{social_links}}</td></tr>
+
+    <!-- DIVIDER -->
+    <tr>
+      <td style="padding:24px 0 0;border-top:1px solid #eeeeee">&nbsp;</td>
+    </tr>
+
+    <!-- FOOTER -->
+    <tr>
+      <td style="padding:0">
+        <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#bbbbbb">
+          &#169; 2025 Mi Empresa &nbsp;&nbsp;
+          <a href="{{unsub_link}}" style="color:#bbbbbb;text-decoration:underline">Darse de baja</a>
+        </p>
+      </td>
+    </tr>
+
+  </table>
+</td></tr>
+</table>
+</body></html>`
+
+};
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let recipients = [];
+let activeCampaignId = null;
+let progressInterval = null;
+let statsInterval = null;
+let activeTab = 'editor';
+let uploadedImagePath = '';   // server-side path after upload
+let uploadedPreviewUrl = '';  // local URL for preview
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.onload = () => {
+  loadTemplate('promo');
+  refreshStats();
+  statsInterval = setInterval(refreshStats, 5000);
+
+  // Drag-over highlight
+  const dz = document.getElementById('drop-zone');
+  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  });
+};
+
+// ─── IMAGE UPLOAD ─────────────────────────────────────────────────────────────
+async function handleFileSelect(file) {
+  if (!file) return;
+  // Show local preview immediately
+  const reader = new FileReader();
+  reader.onload = e => {
+    const prev = document.getElementById('img-preview');
+    prev.src = e.target.result;
+    prev.classList.add('visible');
+    document.getElementById('img-clear').classList.add('visible');
+    document.getElementById('image-url').value = '';
+    updatePreview();
+  };
+  reader.readAsDataURL(file);
+
+  // Upload to server
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const res  = await fetch('/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.error) { toast(data.error, 'error'); return; }
+    uploadedImagePath  = data.path;
+    uploadedPreviewUrl = data.preview_url;
+    toast('Imagen cargada ✓', 'success');
+  } catch (e) {
+    toast('Error subiendo imagen: ' + e.message, 'error');
+  }
+}
+
+function clearImage() {
+  uploadedImagePath = uploadedPreviewUrl = '';
+  document.getElementById('img-preview').src = '';
+  document.getElementById('img-preview').classList.remove('visible');
+  document.getElementById('img-clear').classList.remove('visible');
+  document.getElementById('file-input').value = '';
+  updatePreview();
+}
+
+function getSocialLinks() {
+  return {
+    instagram: document.getElementById('soc-instagram').value.trim(),
+    facebook:  document.getElementById('soc-facebook').value.trim(),
+    tiktok:    document.getElementById('soc-tiktok').value.trim(),
+    youtube:   document.getElementById('soc-youtube').value.trim(),
+    twitter:   document.getElementById('soc-twitter').value.trim(),
+    whatsapp:  document.getElementById('soc-whatsapp').value.trim(),
+    linkedin:  document.getElementById('soc-linkedin').value.trim(),
+  };
+}
+
+// ─── SMTP PRESETS ─────────────────────────────────────────────────────────────
+function applyPreset() {
+  const p = document.getElementById('smtp-preset').value;
+  const presets = {
+    gmail:   { host: 'smtp.gmail.com',          port: 587 },
+    outlook: { host: 'smtp-mail.outlook.com',   port: 587 },
+    yahoo:   { host: 'smtp.mail.yahoo.com',     port: 587 },
+    custom:  { host: '',                         port: 587 },
+  };
+  const s = presets[p];
+  document.getElementById('smtp-host').value = s.host;
+  document.getElementById('smtp-port').value = s.port;
+}
+
+// ─── RECIPIENTS ───────────────────────────────────────────────────────────────
+function parseRecipients() {
+  const raw = document.getElementById('recipients-raw').value;
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  recipients = [];
+  for (const line of lines) {
+    if (line.includes(',')) {
+      const [name, email] = line.split(',').map(s => s.trim());
+      if (email && email.includes('@')) recipients.push({ name, email });
+    } else if (line.includes('@')) {
+      recipients.push({ name: '', email: line });
+    }
+  }
+  document.getElementById('recipients-count').textContent =
+    recipients.length + ' destinatario' + (recipients.length !== 1 ? 's' : '');
+}
+
+// ─── TEMPLATE ─────────────────────────────────────────────────────────────────
+function loadTemplate(name) {
+  document.getElementById('template-editor').value = TEMPLATES[name];
+  updatePreview();
+}
+
+function updatePreview() {
+  // Image: local upload takes priority, then URL field, then placeholder
+  const imgUrl = uploadedPreviewUrl
+    || document.getElementById('image-url').value.trim()
+    || 'https://picsum.photos/600/300?random=42';
+
+  const redirUrl = document.getElementById('redirect-url').value.trim();
+  const prev = document.getElementById('redirect-preview');
+  if (redirUrl) { prev.style.display = 'block'; prev.textContent = '▶ Destino: ' + redirUrl; }
+  else          { prev.style.display = 'none'; }
+
+  if (activeTab !== 'preview') return;
+
+  // Build social preview HTML (simplified)
+  const soc = getSocialLinks();
+  const COLORS = {instagram:'#E1306C',facebook:'#1877F2',tiktok:'#111',youtube:'#FF0000',twitter:'#1DA1F2',whatsapp:'#25D366',linkedin:'#0A66C2'};
+  const LBLS   = {instagram:'IG',facebook:'FB',tiktok:'TT',youtube:'YT',twitter:'X',whatsapp:'WA',linkedin:'IN'};
+  let socHtml = '';
+  for (const [p, url] of Object.entries(soc)) {
+    if (!url) continue;
+    socHtml += `<a href="${url}" style="display:inline-block;margin:0 5px;width:36px;height:36px;border-radius:50%;background:${COLORS[p]};text-align:center;line-height:36px;color:#fff;font-size:13px;font-weight:700;text-decoration:none;font-family:Arial,sans-serif">${LBLS[p]}</a>`;
+  }
+  const socialBlock = socHtml
+    ? `<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:20px;background:#f4f4f8;border-top:1px solid #e0e0e8"><p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin:0 0 12px">Síguenos en redes sociales</p>${socHtml}</td></tr></table>`
+    : '';
+
+  const html = document.getElementById('template-editor').value
+    .replace(/\{\{name\}\}/g, 'Juan García')
+    .replace(/\{\{email\}\}/g, 'juan@ejemplo.com')
+    .replace(/\{\{image_url\}\}/g, imgUrl)
+    .replace(/\{\{cid_image\}\}/g, imgUrl)
+    .replace(/\{\{click_link\}\}/g, '#')
+    .replace(/\{\{unsub_link\}\}/g, '#')
+    .replace(/\{\{social_links\}\}/g, socialBlock);
+  document.getElementById('preview-frame').srcdoc = html;
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-editor').style.display  = tab === 'editor'  ? 'block' : 'none';
+  document.getElementById('tab-preview').style.display = tab === 'preview' ? 'block' : 'none';
+  document.querySelectorAll('.tab').forEach((el, i) => {
+    el.classList.toggle('active', (i === 0) === (tab === 'editor'));
+  });
+  if (tab === 'preview') updatePreview();
+}
+
+// ─── SEND ─────────────────────────────────────────────────────────────────────
+async function sendCampaign() {
+  const smtp = {
+    host:      document.getElementById('smtp-host').value.trim(),
+    port:      document.getElementById('smtp-port').value.trim(),
+    user:      document.getElementById('smtp-user').value.trim(),
+    password:  document.getElementById('smtp-pass').value,
+    from_name: document.getElementById('smtp-from-name').value.trim() || 'Newsletter',
+  };
+  const subject  = document.getElementById('subject').value.trim();
+  const template = document.getElementById('template-editor').value;
+
+  const redirect_url = document.getElementById('redirect-url').value.trim();
+  const image_url    = document.getElementById('image-url').value.trim();
+  const image_path   = uploadedImagePath;
+  const social       = getSocialLinks();
+
+  if (!smtp.user || !smtp.password) return toast('Ingresa el correo y contraseña SMTP', 'error');
+  if (!subject) return toast('Escribe un asunto', 'error');
+  if (recipients.length === 0) return toast('Agrega al menos un destinatario', 'error');
+
+  document.getElementById('send-btn').disabled = true;
+  document.getElementById('progress-card').style.display = 'block';
+
+  try {
+    const res = await fetch('/api/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ smtp, recipients, subject, template, redirect_url, image_url, image_path, social }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    activeCampaignId = data.campaign_id;
+    toast(`Campaña ${activeCampaignId} iniciada`, 'success');
+    pollProgress(data.campaign_id);
+  } catch (e) {
+    toast(e.message, 'error');
+    document.getElementById('send-btn').disabled = false;
+  }
+}
+
+function pollProgress(cid) {
+  clearInterval(progressInterval);
+  progressInterval = setInterval(async () => {
+    const r = await fetch(`/api/progress/${cid}`);
+    const p = await r.json();
+    const pct = p.total > 0 ? Math.round((p.sent + p.failed) / p.total * 100) : 0;
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-text').textContent =
+      `${p.sent} enviados · ${p.failed} fallidos · ${pct}%`;
+
+    if (p.error) {
+      const errEl = document.getElementById('progress-error');
+      errEl.textContent = parseSmtpError(p.error);
+      errEl.classList.add('visible');
+      document.getElementById('progress-card').querySelector('h3').textContent = '❌ Error al enviar';
+      clearInterval(progressInterval);
+      document.getElementById('send-btn').disabled = false;
+    }
+    if (p.done && !p.error) {
+      clearInterval(progressInterval);
+      document.getElementById('send-btn').disabled = false;
+      document.getElementById('progress-card').querySelector('h3').textContent = '✓ Enviado';
+      toast(`¡Listo! ${p.sent} correos enviados`, 'success');
+      refreshStats();
+    }
+  }, 1000);
+}
+
+function parseSmtpError(raw) {
+  if (raw.includes('WebLoginRequired') || raw.includes('log in with your web browser') || raw.includes('5.7.9'))
+    return '🔑 Gmail rechazó la contraseña normal. Debes usar una Contraseña de Aplicación (App Password). Haz clic en "¿Cómo?" arriba para instrucciones.';
+  if (raw.includes('535') || raw.includes('Authentication') || raw.includes('Username and Password'))
+    return '🔑 Credenciales incorrectas. Verifica tu correo y contraseña.';
+  if (raw.includes('534'))
+    return '🔒 Acceso bloqueado por el proveedor. Activa "Acceso de aplicaciones menos seguras" o usa App Password.';
+  if (raw.includes('Connection refused') || raw.includes('getaddrinfo'))
+    return '🌐 No se pudo conectar al servidor SMTP. Verifica el host y el puerto.';
+  if (raw.includes('timeout'))
+    return '⏱ Tiempo de conexión agotado. El servidor SMTP no responde.';
+  return raw.replace(/b'|\\n/g, ' ').trim();
+}
+
+// ─── STATS ────────────────────────────────────────────────────────────────────
+async function refreshStats() {
+  const r = await fetch('/api/campaigns');
+  const list = await r.json();
+
+  let total = 0, opens = 0, clicks = 0;
+  list.forEach(c => { total += c.sent || 0; opens += c.opens || 0; clicks += c.clicks || 0; });
+
+  document.getElementById('s-total').textContent    = total;
+  document.getElementById('s-opens').textContent   = opens;
+  document.getElementById('s-clicks').textContent  = clicks;
+  document.getElementById('s-campaigns').textContent = list.length;
+
+  const el = document.getElementById('campaigns-list');
+  if (list.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = list.slice(0, 5).map(c => {
+    const hasErr = !!c.error;
+    const badge  = hasErr ? 'badge-red' : (c.sent === c.total ? 'badge-green' : 'badge-yellow');
+    const label  = hasErr ? '✗ Error' : (c.sent === c.total ? '✓ Listo' : '⟳ Enviando');
+    const errTxt = hasErr ? `<div class="error-msg">⚠ ${parseSmtpError(c.error)}</div>` : '';
+    return `
+    <div class="campaign-row ${hasErr ? 'has-error' : ''}">
+      <span class="cid">${c.id}</span>
+      <div class="meta">
+        <div style="color:var(--text)">${c.subject || '—'}</div>
+        <div>${c.sent||0}/${c.total} enviados · ${c.opens||0} abiertos · ${c.clicks||0} clics · ${c.created_at}</div>
+        ${errTxt}
+      </div>
+      <span class="badge ${badge}" style="align-self:flex-start">${label}</span>
+    </div>`;
+  }).join('');
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + type + ' show';
+  const delay = type === 'error' ? 8000 : 3500;
+  setTimeout(() => el.classList.remove('show'), delay);
+}
+
+// ─── GMAIL HELP ───────────────────────────────────────────────────────────────
+function showGmailHelp() {
+  document.getElementById('gmail-modal').style.display = 'flex';
+}
+
+// ─── MODULE SWITCHER ──────────────────────────────────────────────────────────
+function switchModule(mod) {
+  document.querySelectorAll('.module').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.mtab').forEach(el => el.classList.remove('active'));
+  document.getElementById('mod-' + mod).classList.add('active');
+  document.querySelectorAll('.mtab')[mod === 'email' ? 0 : 1].classList.add('active');
+  if (mod === 'whatsapp') startWaStatusPoll();
+}
+
+// ─── CSV IMPORT ───────────────────────────────────────────────────────────────
+async function importCSV(input, target) {
+  const file = input.files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const res  = await fetch('/api/csv', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.error) return toast(data.error, 'error');
+
+    if (target === 'email') {
+      const lines = data.contacts.map(c => c.name ? `${c.name},${c.email}` : c.email).filter(Boolean);
+      document.getElementById('recipients-raw').value = lines.join('\n');
+      parseRecipients();
+      toast(`${data.total} correos importados del CSV`, 'success');
+    } else {
+      const lines = data.contacts.map(c => c.name ? `${c.name},${c.phone}` : c.phone).filter(Boolean);
+      document.getElementById('wa-recipients').value = lines.join('\n');
+      parseWaRecipients();
+      toast(`${data.total} contactos importados del CSV`, 'success');
+    }
+  } catch (e) { toast('Error al leer CSV: ' + e.message, 'error'); }
+  input.value = '';
+}
+
+// ─── WHATSAPP RECIPIENTS ──────────────────────────────────────────────────────
+let waContacts = [];
+
+function parseWaRecipients() {
+  const cc  = document.getElementById('wa-country-code').value.trim() || '57';
+  const raw = document.getElementById('wa-recipients').value;
+  waContacts = [];
+  for (const line of raw.split('\n').map(l => l.trim()).filter(Boolean)) {
+    let name = '', phone = '';
+    if (line.includes(',')) {
+      [name, phone] = line.split(',').map(s => s.trim());
+    } else {
+      phone = line;
+    }
+    // Normalize phone
+    phone = phone.replace(/[\s\-().]/g, '');
+    if (!phone.startsWith('+') && !phone.startsWith(cc)) phone = cc + phone;
+    phone = phone.replace(/^\+/, '');
+    if (phone.length >= 8) waContacts.push({ name, phone });
+  }
+  document.getElementById('wa-rec-count').textContent =
+    waContacts.length + ' contacto' + (waContacts.length !== 1 ? 's' : '');
+  updateWaPreview();
+}
+
+// ─── WHATSAPP TEMPLATES ───────────────────────────────────────────────────────
+const WA_TEMPLATES = {
+  promo: `🎉 *¡Hola {{name}}!*
+
+Tenemos una oferta exclusiva que no puedes perderte 👇
+
+🛒 *Descuento especial* solo por hoy
+✅ Entrega rápida garantizada
+💳 Múltiples métodos de pago
+
+👉 Escríbenos para más info o haz clic aquí: [ENLACE]
+
+_Para no recibir más mensajes responde STOP_`,
+
+  event: `🎊 *¡{{name}}, estás invitado/a!*
+
+Te informamos sobre nuestro próximo evento:
+
+📅 *Fecha:* [FECHA]
+📍 *Lugar:* [LUGAR]
+🕐 *Hora:* [HORA]
+
+¡Reserva tu cupo ahora! Plazas limitadas 🔥
+
+Responde este mensaje o llámanos al [TELÉFONO]`,
+
+  reminder: `⏰ *Recordatorio para {{name}}*
+
+Te escribimos para recordarte que tienes:
+
+📋 *[DESCRIPCIÓN]*
+📅 Fecha límite: *[FECHA]*
+
+Si tienes alguna duda, no dudes en escribirnos. 😊
+
+_Gracias por tu confianza._`,
+
+  followup: `👋 *Hola {{name}}*, ¿cómo estás?
+
+Hace unos días tuvimos contacto y quería saber si pudiste resolver tu consulta.
+
+¿Podemos ayudarte en algo más? Estamos a tu disposición 🙌
+
+Responde cuando puedas.`
+};
+
+function loadWaTemplate(name) {
+  document.getElementById('wa-message').value = WA_TEMPLATES[name];
+  updateWaPreview();
+}
+
+function updateWaPreview() {
+  const msg  = document.getElementById('wa-message').value;
+  const name = waContacts[0]?.name || 'Juan García';
+  const phone = waContacts[0]?.phone || '573001234567';
+  document.getElementById('wa-preview').textContent =
+    msg.replace(/\{\{name\}\}/g, name).replace(/\{\{phone\}\}/g, phone);
+}
+document.getElementById('wa-message')?.addEventListener('input', updateWaPreview);
+
+// ─── WHATSAPP STATUS POLL ─────────────────────────────────────────────────────
+let waStatusInterval = null;
+
+function startWaStatusPoll() {
+  if (waStatusInterval) return;
+  waStatusInterval = setInterval(fetchWaStatus, 2000);
+  fetchWaStatus();
+}
+
+async function fetchWaStatus() {
+  const r    = await fetch('/api/wa/status');
+  const data = await r.json();
+  updateWaStatusUI(data.status, data.error);
+}
+
+function updateWaStatusUI(status, error) {
+  const pill  = document.getElementById('wa-status-pill');
+  const msg   = document.getElementById('wa-status-msg');
+  const conBtn = document.getElementById('wa-connect-btn');
+  const disBtn = document.getElementById('wa-disconnect-btn');
+
+  const STATES = {
+    disconnected: { cls:'wa-disc', label:'Desconectado',     text:'Haz clic en Conectar para abrir WhatsApp Web en Chrome.' },
+    loading:      { cls:'wa-load', label:'Iniciando Chrome…', text:'Abriendo navegador, espera un momento...' },
+    waiting_qr:   { cls:'wa-qr',  label:'Escanea el QR',     text:'📱 Abre WhatsApp en tu celular → Menú → Dispositivos vinculados → Vincular dispositivo.' },
+    connected:    { cls:'wa-conn', label:'Conectado ✓',       text:'WhatsApp listo. Escribe tu mensaje y envía.' },
+    error:        { cls:'wa-err', label:'Error',              text: error || 'Error desconocido. Intenta reconectar.' },
+  };
+
+  const s = STATES[status] || STATES.error;
+  pill.className = 'wa-status ' + s.cls;
+  pill.innerHTML = `<div class="dot"></div><span>${s.label}</span>`;
+  msg.textContent = s.text;
+
+  conBtn.style.display = status === 'connected' ? 'none' : 'inline-flex';
+  disBtn.style.display = status === 'connected' ? 'inline-flex' : 'none';
+  conBtn.disabled = status === 'loading' || status === 'waiting_qr';
+}
+
+// ─── WHATSAPP CONNECT / DISCONNECT ────────────────────────────────────────────
+async function waConnect() {
+  await fetch('/api/wa/connect', { method: 'POST' });
+  startWaStatusPoll();
+}
+
+async function waDisconnect() {
+  await fetch('/api/wa/disconnect', { method: 'POST' });
+  clearInterval(waStatusInterval);
+  waStatusInterval = null;
+  updateWaStatusUI('disconnected', null);
+}
+
+// ─── WHATSAPP SEND ────────────────────────────────────────────────────────────
+let waProgressInterval = null;
+
+async function waSend() {
+  if (wa_bot_status !== 'connected') {
+    // fetch live status
+    const r = await fetch('/api/wa/status');
+    const d = await r.json();
+    if (d.status !== 'connected') return toast('Conecta WhatsApp primero', 'error');
+  }
+  parseWaRecipients();
+  if (waContacts.length === 0) return toast('Agrega destinatarios', 'error');
+  const msg = document.getElementById('wa-message').value.trim();
+  if (!msg) return toast('Escribe un mensaje', 'error');
+
+  document.getElementById('wa-send-btn').disabled = true;
+  document.getElementById('wa-progress-card').style.display = 'block';
+  document.getElementById('wa-errors').textContent = '';
+
+  const res  = await fetch('/api/wa/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contacts: waContacts, message: msg }),
+  });
+  const data = await res.json();
+  pollWaProgress(data.session_id);
+}
+
+let wa_bot_status = 'disconnected';
+
+function pollWaProgress(sid) {
+  clearInterval(waProgressInterval);
+  waProgressInterval = setInterval(async () => {
+    const r = await fetch(`/api/wa/progress/${sid}`);
+    const p = await r.json();
+    const done = p.sent + p.failed;
+    const pct  = p.total > 0 ? Math.round(done / p.total * 100) : 0;
+    document.getElementById('wa-progress-fill').style.width = pct + '%';
+    document.getElementById('wa-progress-text').textContent =
+      `${p.sent} enviados · ${p.failed} fallidos · ${pct}%`;
+    document.getElementById('wa-s-sent').textContent   = p.sent;
+    document.getElementById('wa-s-failed').textContent = p.failed;
+    if (p.errors?.length) {
+      document.getElementById('wa-errors').textContent = p.errors.slice(-3).join('\n');
+    }
+    if (p.done) {
+      clearInterval(waProgressInterval);
+      document.getElementById('wa-send-btn').disabled = false;
+      document.getElementById('wa-progress-card').querySelector('h3').textContent = '✓ Finalizado';
+      document.getElementById('wa-s-sessions').textContent =
+        parseInt(document.getElementById('wa-s-sessions').textContent || '0') + 1;
+      toast(`¡Listo! ${p.sent} mensajes enviados`, 'success');
+    }
+  }, 1500);
+}
+</script>
+</body>
+</html>

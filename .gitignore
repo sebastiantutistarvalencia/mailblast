@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+wa_session/
+static/uploads/
+*.env
+.env
