@@ -894,16 +894,21 @@ function pollProgress(cid) {
   progressInterval = setInterval(async () => {
     const r = await fetch(`/api/progress/${cid}`);
     const p = await r.json();
-    const pct = p.total > 0 ? Math.round((p.sent + p.failed) / p.total * 100) : 0;
+    const sent   = p.sent   || 0;
+    const failed = p.failed || 0;
+    const total  = p.total  || 1;
+    const pct    = Math.round((sent + failed) / total * 100);
     document.getElementById('progress-fill').style.width = pct + '%';
     document.getElementById('progress-text').textContent =
-      `${p.sent} enviados · ${p.failed} fallidos · ${pct}%`;
+      `${sent} enviados · ${failed} fallidos · ${pct}%`;
 
     if (p.error) {
       const errEl = document.getElementById('progress-error');
       errEl.textContent = parseSmtpError(p.error);
       errEl.classList.add('visible');
-      document.getElementById('progress-card').querySelector('h3').textContent = '❌ Error al enviar';
+      document.getElementById('progress-card').querySelector('h3').textContent = 'Error al enviar';
+      document.getElementById('progress-text').textContent =
+        `${p.sent||0} enviados · ${p.failed||0} fallidos`;
       clearInterval(progressInterval);
       document.getElementById('send-btn').disabled = false;
     }
