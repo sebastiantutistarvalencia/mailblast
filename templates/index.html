@@ -122,35 +122,60 @@ textarea{resize:vertical;font-family:'Courier New',monospace;font-size:12px}
   <!-- SIDEBAR -->
   <div class="sidebar">
 
-    <!-- SMTP -->
+    <!-- PROVIDER SELECTOR -->
     <div class="card">
-      <h3>📡 Servidor SMTP</h3>
-      <label>Proveedor</label>
-      <select id="smtp-preset" onchange="applyPreset()">
-        <option value="gmail">Gmail</option>
-        <option value="outlook">Outlook / Hotmail</option>
-        <option value="yahoo">Yahoo Mail</option>
-        <option value="custom">Personalizado</option>
-      </select>
-      <div class="row2">
-        <div>
-          <label>Host SMTP</label>
-          <input id="smtp-host" value="smtp.gmail.com">
+      <h3>📡 Proveedor de envío</h3>
+      <div class="tab-bar" style="margin-bottom:14px">
+        <button class="tab active" id="ptab-smtp"   onclick="switchProvider('smtp')">📧 SMTP</button>
+        <button class="tab"        id="ptab-resend" onclick="switchProvider('resend')">⚡ Resend API</button>
+      </div>
+
+      <!-- ── SMTP FIELDS ── -->
+      <div id="provider-smtp">
+        <label style="margin-top:0">Proveedor SMTP</label>
+        <select id="smtp-preset" onchange="applyPreset()">
+          <option value="gmail">Gmail</option>
+          <option value="outlook">Outlook / Hotmail</option>
+          <option value="yahoo">Yahoo Mail</option>
+          <option value="custom">Personalizado</option>
+        </select>
+        <div class="row2">
+          <div>
+            <label>Host SMTP</label>
+            <input id="smtp-host" value="smtp.gmail.com">
+          </div>
+          <div>
+            <label>Puerto</label>
+            <input id="smtp-port" value="587" type="number">
+          </div>
         </div>
-        <div>
-          <label>Puerto</label>
-          <input id="smtp-port" value="587" type="number">
+        <label>Tu correo (remitente)</label>
+        <input id="smtp-user" type="email" placeholder="tucorreo@gmail.com">
+        <label>Contraseña / App Password</label>
+        <input id="smtp-pass" type="password" placeholder="••••••••••••">
+        <div class="hint">Gmail: usa una <b>Contraseña de aplicación</b> — <a href="#" onclick="showGmailHelp()" style="color:var(--accent2)">¿Cómo?</a></div>
+        <button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;justify-content:center" onclick="testSmtp()">🔌 Probar conexión SMTP</button>
+        <div id="smtp-test-result" class="alert-box" style="margin-top:8px"></div>
+        <label>Nombre remitente</label>
+        <input id="smtp-from-name" placeholder="Mi Empresa">
+      </div>
+
+      <!-- ── RESEND FIELDS ── -->
+      <div id="provider-resend" style="display:none">
+        <div style="background:#0c1a0c;border:1px solid #14532d;border-radius:8px;padding:10px 12px;font-size:12px;color:#86efac;line-height:1.6;margin-bottom:12px">
+          ⚡ <b>Resend</b> envía por HTTPS (sin bloqueos de puerto). 3 000 emails/mes gratis.<br>
+          Necesitas una cuenta en <b>resend.com</b> y un dominio verificado.
+        </div>
+        <label style="margin-top:0">API Key de Resend</label>
+        <input id="resend-api-key" type="password" placeholder="re_xxxxxxxxxxxxxxxxxxxxxxxx">
+        <label>Email remitente <span style="color:var(--muted)">(debe ser de tu dominio verificado)</span></label>
+        <input id="resend-from-email" type="email" placeholder="newsletter@miempresa.com">
+        <label>Nombre remitente</label>
+        <input id="resend-from-name" placeholder="Mi Empresa">
+        <div class="hint" style="margin-top:8px">
+          ¿No tienes dominio verificado aún? Usa <code>onboarding@resend.dev</code> solo para probar con tu propio correo.
         </div>
       </div>
-      <label>Tu correo (remitente)</label>
-      <input id="smtp-user" type="email" placeholder="tucorreo@gmail.com">
-      <label>Contraseña / App Password</label>
-      <input id="smtp-pass" type="password" placeholder="••••••••••••">
-      <div class="hint">Gmail: usa una <b>Contraseña de aplicación</b> — <a href="#" onclick="showGmailHelp()" style="color:var(--accent2)">¿Cómo?</a></div>
-      <button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;justify-content:center" onclick="testSmtp()">🔌 Probar conexión SMTP</button>
-      <div id="smtp-test-result" class="alert-box" style="margin-top:8px"></div>
-      <label>Nombre remitente</label>
-      <input id="smtp-from-name" placeholder="Mi Empresa">
     </div>
 
     <!-- RECIPIENTS -->
@@ -849,26 +874,50 @@ function switchTab(tab) {
   if (tab === 'preview') updatePreview();
 }
 
+// ─── PROVIDER SWITCHER ────────────────────────────────────────────────────────
+let activeProvider = 'smtp';
+function switchProvider(p) {
+  activeProvider = p;
+  document.getElementById('provider-smtp').style.display   = p === 'smtp'   ? 'block' : 'none';
+  document.getElementById('provider-resend').style.display = p === 'resend' ? 'block' : 'none';
+  document.getElementById('ptab-smtp').classList.toggle('active',   p === 'smtp');
+  document.getElementById('ptab-resend').classList.toggle('active', p === 'resend');
+}
+
 // ─── SEND ─────────────────────────────────────────────────────────────────────
 async function sendCampaign() {
-  const smtp = {
-    host:      document.getElementById('smtp-host').value.trim(),
-    port:      document.getElementById('smtp-port').value.trim(),
-    user:      document.getElementById('smtp-user').value.trim(),
-    password:  document.getElementById('smtp-pass').value,
-    from_name: document.getElementById('smtp-from-name').value.trim() || 'Newsletter',
-  };
   const subject  = document.getElementById('subject').value.trim();
   const template = document.getElementById('template-editor').value;
-
   const redirect_url = document.getElementById('redirect-url').value.trim();
   const image_url    = document.getElementById('image-url').value.trim();
   const image_path   = uploadedImagePath;
   const social       = getSocialLinks();
 
-  if (!smtp.user || !smtp.password) return toast('Ingresa el correo y contraseña SMTP', 'error');
   if (!subject) return toast('Escribe un asunto', 'error');
   if (recipients.length === 0) return toast('Agrega al menos un destinatario', 'error');
+
+  let payload = { provider: activeProvider, recipients, subject, template, redirect_url, image_url, image_path, social };
+
+  if (activeProvider === 'resend') {
+    const apiKey    = document.getElementById('resend-api-key').value.trim();
+    const fromEmail = document.getElementById('resend-from-email').value.trim();
+    const fromName  = document.getElementById('resend-from-name').value.trim() || 'Newsletter';
+    if (!apiKey)    return toast('Ingresa tu API Key de Resend', 'error');
+    if (!fromEmail) return toast('Ingresa el email remitente (dominio verificado)', 'error');
+    payload.resend = { api_key: apiKey, from_email: fromEmail, from_name: fromName };
+    // smtp stub so backend doesn't crash if accessed
+    payload.smtp = {};
+  } else {
+    const smtp = {
+      host:      document.getElementById('smtp-host').value.trim(),
+      port:      document.getElementById('smtp-port').value.trim(),
+      user:      document.getElementById('smtp-user').value.trim(),
+      password:  document.getElementById('smtp-pass').value,
+      from_name: document.getElementById('smtp-from-name').value.trim() || 'Newsletter',
+    };
+    if (!smtp.user || !smtp.password) return toast('Ingresa el correo y contraseña SMTP', 'error');
+    payload.smtp = smtp;
+  }
 
   document.getElementById('send-btn').disabled = true;
   document.getElementById('progress-card').style.display = 'block';
@@ -877,7 +926,7 @@ async function sendCampaign() {
     const res = await fetch('/api/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ smtp, recipients, subject, template, redirect_url, image_url, image_path, social }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);

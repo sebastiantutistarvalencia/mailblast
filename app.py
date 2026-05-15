@@ -5,6 +5,10 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from datetime import datetime
 try:
+    import resend as resend_sdk
+except ImportError:
+    resend_sdk = None
+try:
     from whatsapp_bot import wa_bot
     WA_AVAILABLE = True
 except Exception as _wa_err:
@@ -102,6 +106,56 @@ def build_mime(subject, from_str, to_email, html, image_path=None):
     msg['To']      = to_email
     msg['Message-ID'] = f"<{uuid.uuid4()}@mailer>"
     return msg
+
+
+def send_emails_resend_thread(campaign_id, api_key, from_email, from_name,
+                              recipients, subject, template, host_url,
+                              redirect_url='', image_path='', image_url='', social=None):
+    resend_sdk.api_key = api_key
+
+    use_local_img = bool(image_path and os.path.isfile(image_path))
+    if use_local_img:
+        effective_img_url = host_url.rstrip('/') + '/static/uploads/' + os.path.basename(image_path)
+    else:
+        effective_img_url = image_url or 'https://picsum.photos/600/300?random=42'
+
+    social_html = build_social_html(social or {})
+
+    for recipient in recipients:
+        try:
+            rid = str(uuid.uuid4())[:8]
+            base_track = f"{host_url}track/{campaign_id}/{rid}"
+            click_link = (base_track + '?url=' + urllib.parse.quote(redirect_url, safe='')
+                          if redirect_url else base_track)
+
+            html = template
+            html = html.replace('{{name}}',        recipient.get('name') or 'Amigo/a')
+            html = html.replace('{{email}}',       recipient['email'])
+            html = html.replace('{{click_link}}',  click_link)
+            html = html.replace('{{unsub_link}}',  f"{host_url}unsub/{campaign_id}/{rid}")
+            html = html.replace('{{social_links}}', social_html)
+            html = html.replace('{{image_url}}',   effective_img_url)
+            html = html.replace('{{cid_image}}',   effective_img_url)
+
+            pixel = (f'<img src="{host_url}open/{campaign_id}/{rid}" '
+                     f'width="1" height="1" alt="" style="opacity:0">')
+            html = html.replace('</body>', f'{pixel}</body>')
+
+            resend_sdk.Emails.send({
+                "from":    f"{from_name} <{from_email}>",
+                "to":      [recipient['email']],
+                "subject": subject,
+                "html":    html,
+            })
+            send_progress[campaign_id]['sent'] += 1
+            campaigns[campaign_id]['sent'] += 1
+            time.sleep(0.3)
+        except Exception as e:
+            send_progress[campaign_id]['failed'] += 1
+            campaigns[campaign_id]['failed'] += 1
+            print(f"Resend error: {e}")
+
+    send_progress[campaign_id]['done'] = True
 
 
 def send_emails_thread(campaign_id, smtp_cfg, recipients, subject, template,
@@ -210,16 +264,26 @@ def start_campaign():
         'total': n, 'sent': 0, 'failed': 0, 'opens': 0, 'clicks': 0,
         'created_at': datetime.now().strftime('%H:%M:%S')
     }
-    # Inicializar ANTES de arrancar el hilo para evitar race condition en polls
     send_progress[cid] = {'total': n, 'sent': 0, 'failed': 0, 'done': False, 'error': None}
-    t = threading.Thread(
-        target=send_emails_thread,
-        args=(cid, data['smtp'], data['recipients'], data['subject'], data['template'],
-              request.host_url, data.get('redirect_url', ''),
-              data.get('image_path', ''), data.get('image_url', ''),
-              data.get('social', {})),
-        daemon=True
-    )
+
+    provider = data.get('provider', 'smtp')
+    common = (data['recipients'], data['subject'], data['template'], request.host_url,
+              data.get('redirect_url', ''), data.get('image_path', ''),
+              data.get('image_url', ''), data.get('social', {}))
+
+    if provider == 'resend':
+        rc = data.get('resend', {})
+        t = threading.Thread(
+            target=send_emails_resend_thread,
+            args=(cid, rc['api_key'], rc['from_email'], rc.get('from_name', 'Newsletter')) + common,
+            daemon=True
+        )
+    else:
+        t = threading.Thread(
+            target=send_emails_thread,
+            args=(cid, data['smtp']) + common,
+            daemon=True
+        )
     t.start()
     return jsonify({'campaign_id': cid})
 
