@@ -127,7 +127,7 @@ textarea{resize:vertical;font-family:'Courier New',monospace;font-size:12px}
       <h3>📡 Proveedor de envío</h3>
       <div class="tab-bar" style="margin-bottom:14px">
         <button class="tab active" id="ptab-smtp"   onclick="switchProvider('smtp')">📧 SMTP</button>
-        <button class="tab"        id="ptab-resend" onclick="switchProvider('resend')">⚡ Resend API</button>
+        <button class="tab"        id="ptab-resend" onclick="switchProvider('resend')">⚡ Brevo API</button>
       </div>
 
       <!-- ── SMTP FIELDS ── -->
@@ -160,20 +160,20 @@ textarea{resize:vertical;font-family:'Courier New',monospace;font-size:12px}
         <input id="smtp-from-name" placeholder="Mi Empresa">
       </div>
 
-      <!-- ── RESEND FIELDS ── -->
+      <!-- ── BREVO FIELDS ── -->
       <div id="provider-resend" style="display:none">
         <div style="background:#0c1a0c;border:1px solid #14532d;border-radius:8px;padding:10px 12px;font-size:12px;color:#86efac;line-height:1.6;margin-bottom:12px">
-          ⚡ <b>Resend</b> envía por HTTPS (sin bloqueos de puerto). 3 000 emails/mes gratis.<br>
-          Necesitas una cuenta en <b>resend.com</b> y un dominio verificado.
+          ⚡ <b>Brevo</b> — 9 000 emails/mes gratis, sin DNS ni dominio propio.<br>
+          Solo verificas tu correo con un clic y listo.
         </div>
-        <label style="margin-top:0">API Key de Resend</label>
-        <input id="resend-api-key" type="password" placeholder="re_xxxxxxxxxxxxxxxxxxxxxxxx">
-        <label>Email remitente <span style="color:var(--muted)">(debe ser de tu dominio verificado)</span></label>
-        <input id="resend-from-email" type="email" placeholder="newsletter@miempresa.com">
+        <label style="margin-top:0">API Key de Brevo</label>
+        <input id="resend-api-key" type="password" placeholder="xkeysib-xxxxxxxxxxxxxxxxxxxxxxxx">
+        <label>Tu correo remitente <span style="color:var(--muted)">(el que verificaste en Brevo)</span></label>
+        <input id="resend-from-email" type="email" placeholder="tucorreo@gmail.com">
         <label>Nombre remitente</label>
         <input id="resend-from-name" placeholder="Mi Empresa">
         <div class="hint" style="margin-top:8px">
-          ¿No tienes dominio verificado aún? Usa <code>onboarding@resend.dev</code> solo para probar con tu propio correo.
+          ¿Sin cuenta? → <b>brevo.com</b> → Gratis → Settings → Senders → agrega tu correo → verifica → API Keys → copia la key.
         </div>
       </div>
     </div>
@@ -902,9 +902,10 @@ async function sendCampaign() {
     const apiKey    = document.getElementById('resend-api-key').value.trim();
     const fromEmail = document.getElementById('resend-from-email').value.trim();
     const fromName  = document.getElementById('resend-from-name').value.trim() || 'Newsletter';
-    if (!apiKey)    return toast('Ingresa tu API Key de Resend', 'error');
-    if (!fromEmail) return toast('Ingresa el email remitente (dominio verificado)', 'error');
-    payload.resend = { api_key: apiKey, from_email: fromEmail, from_name: fromName };
+    if (!apiKey)    return toast('Ingresa tu API Key de Brevo', 'error');
+    if (!fromEmail) return toast('Ingresa el email remitente verificado en Brevo', 'error');
+    payload.provider = 'brevo';
+    payload.brevo = { api_key: apiKey, from_email: fromEmail, from_name: fromName };
     // smtp stub so backend doesn't crash if accessed
     payload.smtp = {};
   } else {

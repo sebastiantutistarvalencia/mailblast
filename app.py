@@ -108,6 +108,56 @@ def build_mime(subject, from_str, to_email, html, image_path=None):
     return msg
 
 
+def send_emails_brevo_thread(campaign_id, api_key, from_email, from_name,
+                             recipients, subject, template, host_url,
+                             redirect_url='', image_path='', image_url='', social=None):
+    import requests as _req
+
+    use_local_img = bool(image_path and os.path.isfile(image_path))
+    effective_img_url = (host_url.rstrip('/') + '/static/uploads/' + os.path.basename(image_path)
+                         if use_local_img else image_url or 'https://picsum.photos/600/300?random=42')
+    social_html = build_social_html(social or {})
+    hdrs = {'accept': 'application/json', 'api-key': api_key, 'content-type': 'application/json'}
+
+    for recipient in recipients:
+        try:
+            rid = str(uuid.uuid4())[:8]
+            base_track = f"{host_url}track/{campaign_id}/{rid}"
+            click_link = (base_track + '?url=' + urllib.parse.quote(redirect_url, safe='')
+                          if redirect_url else base_track)
+
+            html = template
+            html = html.replace('{{name}}',        recipient.get('name') or 'Amigo/a')
+            html = html.replace('{{email}}',       recipient['email'])
+            html = html.replace('{{click_link}}',  click_link)
+            html = html.replace('{{unsub_link}}',  f"{host_url}unsub/{campaign_id}/{rid}")
+            html = html.replace('{{social_links}}', social_html)
+            html = html.replace('{{image_url}}',   effective_img_url)
+            html = html.replace('{{cid_image}}',   effective_img_url)
+            pixel = (f'<img src="{host_url}open/{campaign_id}/{rid}" '
+                     f'width="1" height="1" alt="" style="opacity:0">')
+            html = html.replace('</body>', f'{pixel}</body>')
+
+            payload = {
+                'sender': {'name': from_name, 'email': from_email},
+                'to': [{'email': recipient['email'], 'name': recipient.get('name') or ''}],
+                'subject': subject,
+                'htmlContent': html,
+            }
+            r = _req.post('https://api.brevo.com/v3/smtp/email',
+                          json=payload, headers=hdrs, timeout=30)
+            r.raise_for_status()
+            send_progress[campaign_id]['sent'] += 1
+            campaigns[campaign_id]['sent'] += 1
+            time.sleep(0.3)
+        except Exception as e:
+            send_progress[campaign_id]['failed'] += 1
+            campaigns[campaign_id]['failed'] += 1
+            print(f"Brevo error: {e}")
+
+    send_progress[campaign_id]['done'] = True
+
+
 def send_emails_resend_thread(campaign_id, api_key, from_email, from_name,
                               recipients, subject, template, host_url,
                               redirect_url='', image_path='', image_url='', social=None):
@@ -271,7 +321,14 @@ def start_campaign():
               data.get('redirect_url', ''), data.get('image_path', ''),
               data.get('image_url', ''), data.get('social', {}))
 
-    if provider == 'resend':
+    if provider == 'brevo':
+        rc = data.get('brevo', {})
+        t = threading.Thread(
+            target=send_emails_brevo_thread,
+            args=(cid, rc['api_key'], rc['from_email'], rc.get('from_name', 'Newsletter')) + common,
+            daemon=True
+        )
+    elif provider == 'resend':
         rc = data.get('resend', {})
         t = threading.Thread(
             target=send_emails_resend_thread,
