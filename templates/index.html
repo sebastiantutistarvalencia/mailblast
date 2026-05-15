@@ -147,6 +147,8 @@ textarea{resize:vertical;font-family:'Courier New',monospace;font-size:12px}
       <label>Contraseña / App Password</label>
       <input id="smtp-pass" type="password" placeholder="••••••••••••">
       <div class="hint">Gmail: usa una <b>Contraseña de aplicación</b> — <a href="#" onclick="showGmailHelp()" style="color:var(--accent2)">¿Cómo?</a></div>
+      <button class="btn btn-outline btn-sm" style="margin-top:10px;width:100%;justify-content:center" onclick="testSmtp()">🔌 Probar conexión SMTP</button>
+      <div id="smtp-test-result" class="alert-box" style="margin-top:8px"></div>
       <label>Nombre remitente</label>
       <input id="smtp-from-name" placeholder="Mi Empresa">
     </div>
@@ -976,6 +978,33 @@ function toast(msg, type = '') {
   el.className = 'toast ' + type + ' show';
   const delay = type === 'error' ? 8000 : 3500;
   setTimeout(() => el.classList.remove('show'), delay);
+}
+
+// ─── TEST SMTP ────────────────────────────────────────────────────────────────
+async function testSmtp() {
+  const smtp = {
+    host:     document.getElementById('smtp-host').value.trim(),
+    port:     document.getElementById('smtp-port').value.trim(),
+    user:     document.getElementById('smtp-user').value.trim(),
+    password: document.getElementById('smtp-pass').value,
+  };
+  const box = document.getElementById('smtp-test-result');
+  box.className = 'alert-box alert-info visible';
+  box.textContent = '⏳ Probando conexión...';
+  try {
+    const r    = await fetch('/api/test-smtp', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(smtp) });
+    const data = await r.json();
+    if (data.ok) {
+      box.className = 'alert-box alert-info visible';
+      box.textContent = '✅ Conexión exitosa. El SMTP funciona correctamente.';
+    } else {
+      box.className = 'alert-box alert-error visible';
+      box.textContent = '❌ ' + parseSmtpError(data.error);
+    }
+  } catch(e) {
+    box.className = 'alert-box alert-error visible';
+    box.textContent = '❌ Error de red: ' + e.message;
+  }
 }
 
 // ─── GMAIL HELP ───────────────────────────────────────────────────────────────

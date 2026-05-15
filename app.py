@@ -229,6 +229,25 @@ def get_progress(cid):
     return jsonify(send_progress.get(cid, {'error': 'No encontrada'}))
 
 
+@app.route('/api/test-smtp', methods=['POST'])
+def test_smtp():
+    smtp = request.json
+    try:
+        ctx = ssl.create_default_context()
+        port = int(smtp['port'])
+        if port == 465:
+            server = smtplib.SMTP_SSL(smtp['host'], port, context=ctx, timeout=15)
+        else:
+            server = smtplib.SMTP(smtp['host'], port, timeout=15)
+            server.ehlo()
+            server.starttls(context=ctx)
+        server.login(smtp['user'], smtp['password'])
+        server.quit()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @app.route('/api/campaigns')
 def list_campaigns():
     return jsonify(list(reversed(list(campaigns.values()))))
